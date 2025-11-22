@@ -1,6 +1,7 @@
 name = "cf-workers-docker"
 main = "_worker.js"
 compatibility_date = "2025-11-22"
+compatibility_flags = ["nodejs_compat"]
 
 [vars]
 # 你可以在这里添加环境变量
