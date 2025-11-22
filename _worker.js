@@ -479,6 +479,105 @@ export default {
 						},
 					});
 				}
+			} else if (url.pathname == '/search') {
+				// 处理搜索请求，使用Docker Hub API
+				const searchTerm = url.searchParams.get('q');
+				console.log(`[${timestamp}] [${requestId}] 搜索镜像: ${searchTerm}`);
+				
+				// 构建Docker Hub API搜索URL
+				const apiUrl = new URL('https://hub.docker.com/v2/search/repositories/');
+				apiUrl.searchParams.set('query', searchTerm);
+				apiUrl.searchParams.set('page_size', '10');
+				
+				console.log(`[${timestamp}] [${requestId}] Docker Hub API搜索URL: ${apiUrl}`);
+				
+				// 如果有Docker Hub认证信息，添加到请求中
+				const headers = new Headers();
+				headers.set('User-Agent', getReqHeader("User-Agent"));
+				headers.set('Accept', 'application/json');
+				
+				if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
+					console.log(`[${timestamp}] [${requestId}] 使用Docker Hub认证进行搜索`);
+					const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
+					headers.set('Authorization', `Basic ${credentials}`);
+				}
+				
+				const searchRequest = new Request(apiUrl, {
+					method: 'GET',
+					headers: headers
+				});
+				
+				const response = await fetch(searchRequest);
+				console.log(`[${timestamp}] [${requestId}] Docker Hub API搜索响应状态码: ${response.status}`);
+				
+				// 如果API请求成功，返回结果
+				if (response.ok) {
+					const results = await response.json();
+					
+					// 构建HTML响应
+					let html = `
+					<!DOCTYPE html>
+					<html>
+					<head>
+						<meta charset="UTF-8">
+						<title>Docker镜像搜索结果: ${searchTerm}</title>
+						<style>
+							body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
+							.search-result { border: 1px solid #ddd; margin-bottom: 15px; padding: 15px; border-radius: 5px; }
+							.search-result h3 { margin-top: 0; }
+							.search-result a { text-decoration: none; color: #0066cc; }
+							.search-result a:hover { text-decoration: underline; }
+							.search-form { margin-bottom: 20px; }
+							.search-form input[type="text"] { padding: 8px; width: 300px; }
+							.search-form button { padding: 8px 15px; background: #0066cc; color: white; border: none; cursor: pointer; }
+						</style>
+					</head>
+					<body>
+						<h1>Docker镜像搜索结果: ${searchTerm}</h1>
+						<div class="search-form">
+							<form action="/search" method="get">
+								<input type="text" name="q" value="${searchTerm}" placeholder="搜索Docker镜像...">
+								<button type="submit">搜索</button>
+							</form>
+						</div>
+						<div class="results">
+					`;
+					
+					if (results.results && results.results.length > 0) {
+						results.results.forEach(repo => {
+							html += `
+							<div class="search-result">
+								<h3><a href="https://hub.docker.com/r/${repo.repo_name}" target="_blank">${repo.repo_name}</a></h3>
+								<p>${repo.short_description || '无描述'}</p>
+								<p><strong>拉取命令:</strong> <code>docker pull ${repo.repo_name}</code></p>
+								<p><strong>星标:</strong> ${repo.star_count} | <strong>拉取次数:</strong> ${repo.pull_count}</p>
+							</div>
+							`;
+						});
+					} else {
+						html += `<p>未找到与 "${searchTerm}" 相关的镜像。</p>`;
+					}
+					
+					html += `
+						</div>
+					</body>
+					</html>
+					`;
+					
+					return new Response(html, {
+						headers: {
+							'Content-Type': 'text/html; charset=UTF-8',
+						},
+					});
+				} else {
+					// 如果API请求失败，返回错误页面
+					return new Response(`搜索失败: ${response.status} ${response.statusText}`, {
+						status: response.status,
+						headers: {
+							'Content-Type': 'text/plain; charset=UTF-8',
+						},
+					});
+				}
 			} else {
 				// 新增逻辑：/v1/ 路径特殊处理
 				if (url.pathname.startsWith('/v1/')) {
