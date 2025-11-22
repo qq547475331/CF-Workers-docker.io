@@ -509,8 +509,11 @@ export default {
 			};
 			// 如果提供了Docker Hub认证信息，添加Basic Auth
 			if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
+				console.log("Docker Hub认证信息已加载");
 				const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
 				token_parameter.headers['Authorization'] = `Basic ${credentials}`;
+			} else {
+				console.log("未找到Docker Hub认证信息，将使用未认证请求");
 			}
 			let token_url = auth_url + url.pathname + url.search;
 			return fetch(new Request(token_url, request), token_parameter);
@@ -541,6 +544,7 @@ export default {
 			}
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
+				console.log(`获取镜像 ${repo} 的token`);
 				const tokenRes = await fetch(tokenUrl, {
 					headers: {
 						'User-Agent': getReqHeader("User-Agent"),
@@ -553,6 +557,7 @@ export default {
 				});
 				const tokenData = await tokenRes.json();
 				const token = tokenData.token;
+				console.log(`Token获取成功，状态码: ${tokenRes.status}`);
 				let parameter = {
 					headers: {
 						'Host': hub_host,
