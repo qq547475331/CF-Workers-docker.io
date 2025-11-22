@@ -10,3 +10,8 @@ compatibility_flags = ["nodejs_compat"]
 # Docker Hub 认证信息（请通过 Cloudflare Workers 环境变量设置）
 # DOCKER_USERNAME = "your_dockerhub_username"
 # DOCKER_PASSWORD = "your_dockerhub_token"
+
+[[kv_namespaces]]
+binding = "DOCKER_AUTH"
+id = "your_kv_namespace_id"
+preview_id = "your_preview_kv_namespace_id"

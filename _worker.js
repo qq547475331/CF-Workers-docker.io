@@ -1,5 +1,17 @@
 // _worker.js
 
+// 从 KV 存储获取 Docker Hub 认证信息
+async function getDockerAuth(env) {
+	try {
+		const username = await env.DOCKER_AUTH.get('USERNAME');
+		const password = await env.DOCKER_AUTH.get('PASSWORD');
+		return { username, password };
+	} catch (error) {
+		console.error('Failed to get Docker auth from KV:', error);
+		return { username: null, password: null };
+	}
+}
+
 // Docker镜像仓库主机地址
 let hub_host = 'registry-1.docker.io';
 // Docker认证服务器地址
@@ -508,8 +520,9 @@ export default {
 				}
 			};
 			// 如果提供了Docker Hub认证信息，添加Basic Auth
-			if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
-				const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
+			const { username, password } = await getDockerAuth(env);
+			if (username && password) {
+				const credentials = btoa(`${username}:${password}`);
 				token_parameter.headers['Authorization'] = `Basic ${credentials}`;
 			}
 			let token_url = auth_url + url.pathname + url.search;
