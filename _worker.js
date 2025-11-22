@@ -485,8 +485,8 @@ export default {
 				console.log(`[${timestamp}] [${requestId}] 搜索镜像: ${searchTerm}`);
 				
 				// 检查缓存
-				const cacheKey = `search:${searchTerm}`;
-				const cachedResponse = await caches.default.match(cacheKey);
+				const cacheUrl = new URL(`https://cache.docker.io/search/${encodeURIComponent(searchTerm)}`);
+				const cachedResponse = await caches.default.match(cacheUrl);
 				if (cachedResponse) {
 					console.log(`[${timestamp}] [${requestId}] 从缓存返回搜索结果: ${searchTerm}`);
 					return cachedResponse;
@@ -581,7 +581,7 @@ export default {
 					});
 					
 					// 缓存成功响应，减少API请求频率
-					await caches.default.put(cacheKey, successResponse.clone());
+					await caches.default.put(cacheUrl, successResponse.clone());
 					
 					return successResponse;
 				} else if (response.status === 429 || response.status >= 500) {
@@ -699,7 +699,7 @@ export default {
 					});
 					
 					// 缓存替代结果，减少API请求频率
-					await caches.default.put(cacheKey, fallbackResponse.clone());
+					await caches.default.put(cacheUrl, fallbackResponse.clone());
 					
 					return fallbackResponse;
 				} else {
