@@ -413,8 +413,10 @@ async function searchInterface() {
 
 export default {
 	async fetch(request, env, ctx) {
-		console.log("Worker 开始处理请求");
-		console.log("检查环境变量:", {
+		const requestId = Math.random().toString(36).substring(7);
+		const timestamp = new Date().toISOString();
+		console.log(`[${timestamp}] [${requestId}] Worker 开始处理请求`);
+		console.log(`[${timestamp}] [${requestId}] 检查环境变量:`, {
 			DOCKER_USERNAME: env.DOCKER_USERNAME ? "已设置" : "未设置",
 			DOCKER_PASSWORD: env.DOCKER_PASSWORD ? "已设置" : "未设置"
 		});
@@ -457,7 +459,7 @@ export default {
 				},
 			});
 		} else if ((userAgent && userAgent.includes('mozilla')) || hubParams.some(param => url.pathname.includes(param))) {
-			console.log(`处理搜索请求，路径: ${url.pathname}`);
+			console.log(`[${timestamp}] [${requestId}] 处理搜索请求，路径: ${url.pathname}`);
 			if (url.pathname == '/') {
 				if (env.URL302) {
 					return Response.redirect(env.URL302, 302);
@@ -488,11 +490,11 @@ export default {
 					const search = url.searchParams.get('q');
 					url.searchParams.set('q', search.replace('library/', ''));
 				}
-				console.log(`最终请求URL: ${url}`);
+				console.log(`[${timestamp}] [${requestId}] 最终请求URL: ${url}`);
 				const newRequest = new Request(url, request);
 				const response = await fetch(newRequest);
-				console.log(`响应状态码: ${response.status}`);
-				return response;
+			console.log(`[${timestamp}] [${requestId}] 响应状态码: ${response.status}`);
+			return response;
 			}
 		}
 
@@ -544,7 +546,8 @@ export default {
 				url.pathname.includes('/tags/')
 				|| url.pathname.endsWith('/tags/list')
 			)
-		) {
+		)
+		{
 			// 提取镜像名
 			let repo = '';
 			const v2Match = url.pathname.match(/^\/v2\/(.+?)(?:\/(manifests|blobs|tags)\/)/);
@@ -553,7 +556,7 @@ export default {
 			}
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
-				console.log(`获取镜像 ${repo} 的token`);
+				console.log(`[${timestamp}] [${requestId}] 获取镜像 ${repo} 的token`);
 				const tokenRes = await fetch(tokenUrl, {
 					headers: {
 						'User-Agent': getReqHeader("User-Agent"),
@@ -566,7 +569,7 @@ export default {
 				});
 				const tokenData = await tokenRes.json();
 				const token = tokenData.token;
-				console.log(`Token获取成功，状态码: ${tokenRes.status}`);
+				console.log(`[${timestamp}] [${requestId}] Token获取成功，状态码: ${tokenRes.status}`);
 				let parameter = {
 					headers: {
 						'Host': hub_host,
