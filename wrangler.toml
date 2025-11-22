@@ -4,7 +4,9 @@ compatibility_date = "2025-11-22"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# 你可以在这里添加环境变量
-# URL302 = "https://example.com"
+# URL302 = ""
 # URL = "nginx"
-# UA = "bot1,bot2"
+# UA = ""
+# Docker Hub 认证信息（请通过 Cloudflare Workers 环境变量设置）
+# DOCKER_USERNAME = "your_dockerhub_username"
+# DOCKER_PASSWORD = "your_dockerhub_token"

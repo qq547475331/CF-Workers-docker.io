@@ -507,6 +507,11 @@ export default {
 					'Cache-Control': 'max-age=0'
 				}
 			};
+			// 如果提供了Docker Hub认证信息，添加Basic Auth
+			if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
+				const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
+				token_parameter.headers['Authorization'] = `Basic ${credentials}`;
+			}
 			let token_url = auth_url + url.pathname + url.search;
 			return fetch(new Request(token_url, request), token_parameter);
 		}
