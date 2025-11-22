@@ -413,6 +413,11 @@ async function searchInterface() {
 
 export default {
 	async fetch(request, env, ctx) {
+		console.log("Worker 开始处理请求");
+		console.log("检查环境变量:", {
+			DOCKER_USERNAME: env.DOCKER_USERNAME ? "已设置" : "未设置",
+			DOCKER_PASSWORD: env.DOCKER_PASSWORD ? "已设置" : "未设置"
+		});
 		const getReqHeader = (key) => request.headers.get(key); // 获取请求头
 
 		let url = new URL(request.url); // 解析请求URL
@@ -452,6 +457,7 @@ export default {
 				},
 			});
 		} else if ((userAgent && userAgent.includes('mozilla')) || hubParams.some(param => url.pathname.includes(param))) {
+			console.log(`处理搜索请求，路径: ${url.pathname}`);
 			if (url.pathname == '/') {
 				if (env.URL302) {
 					return Response.redirect(env.URL302, 302);
@@ -482,8 +488,11 @@ export default {
 					const search = url.searchParams.get('q');
 					url.searchParams.set('q', search.replace('library/', ''));
 				}
+				console.log(`最终请求URL: ${url}`);
 				const newRequest = new Request(url, request);
-				return fetch(newRequest);
+				const response = await fetch(newRequest);
+				console.log(`响应状态码: ${response.status}`);
+				return response;
 			}
 		}
 
