@@ -13,5 +13,5 @@ compatibility_flags = ["nodejs_compat"]
 
 [[kv_namespaces]]
 binding = "DOCKER_AUTH"
-id = "your_kv_namespace_id"
-preview_id = "your_preview_kv_namespace_id"
+id = "448e71cd666a4b78ba6dcc5213fbf48d"
+#preview_id = "your_preview_kv_namespace_id"
