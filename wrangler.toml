@@ -1,0 +1,9 @@
+name = "cf-workers-docker"
+main = "_worker.js"
+compatibility_date = "2025-11-22"
+
+[vars]
+# 你可以在这里添加环境变量
+# URL302 = "https://example.com"
+URL = "nginx"
+# UA = "bot1,bot2"
