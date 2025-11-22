@@ -413,13 +413,6 @@ async function searchInterface() {
 
 export default {
 	async fetch(request, env, ctx) {
-		const requestId = Math.random().toString(36).substring(7);
-		const timestamp = new Date().toISOString();
-		console.log(`[${timestamp}] [${requestId}] Worker 开始处理请求`);
-		console.log(`[${timestamp}] [${requestId}] 检查环境变量:`, {
-			DOCKER_USERNAME: env.DOCKER_USERNAME ? "已设置" : "未设置",
-			DOCKER_PASSWORD: env.DOCKER_PASSWORD ? "已设置" : "未设置"
-		});
 		const getReqHeader = (key) => request.headers.get(key); // 获取请求头
 
 		let url = new URL(request.url); // 解析请求URL
@@ -459,7 +452,6 @@ export default {
 				},
 			});
 		} else if ((userAgent && userAgent.includes('mozilla')) || hubParams.some(param => url.pathname.includes(param))) {
-			console.log(`[${timestamp}] [${requestId}] 处理搜索请求，路径: ${url.pathname}`);
 			if (url.pathname == '/') {
 				if (env.URL302) {
 					return Response.redirect(env.URL302, 302);
@@ -479,368 +471,6 @@ export default {
 						},
 					});
 				}
-			} else if (url.pathname == '/search') {
-				// 处理搜索请求，使用Docker Hub API
-				const searchTerm = url.searchParams.get('q');
-				console.log(`[${timestamp}] [${requestId}] 搜索镜像: ${searchTerm}`);
-				
-				// 检查缓存
-				const cacheUrl = new URL(`https://cache.docker.io/search/${encodeURIComponent(searchTerm)}`);
-				const cachedResponse = await caches.default.match(cacheUrl);
-				if (cachedResponse) {
-					console.log(`[${timestamp}] [${requestId}] 从缓存返回搜索结果: ${searchTerm}`);
-					return cachedResponse;
-				}
-				
-				// 构建Docker Hub API搜索URL
-				const apiUrl = new URL('https://hub.docker.com/v2/search/repositories/');
-				apiUrl.searchParams.set('query', searchTerm);
-				apiUrl.searchParams.set('page_size', '10');
-				
-				console.log(`[${timestamp}] [${requestId}] Docker Hub API搜索URL: ${apiUrl}`);
-				
-				// 如果有Docker Hub认证信息，添加到请求中
-				const headers = new Headers();
-				headers.set('User-Agent', getReqHeader("User-Agent"));
-				headers.set('Accept', 'application/json');
-				
-				if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
-					console.log(`[${timestamp}] [${requestId}] 使用Docker Hub认证进行搜索`);
-					const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
-					headers.set('Authorization', `Basic ${credentials}`);
-				}
-				
-				const searchRequest = new Request(apiUrl, {
-					method: 'GET',
-					headers: headers
-				});
-				
-				const response = await fetch(searchRequest);
-				console.log(`[${timestamp}] [${requestId}] Docker Hub API搜索响应状态码: ${response.status}`);
-				
-				// 如果API请求成功，返回结果
-				if (response.ok) {
-					let results;
-					try {
-						// 尝试解析JSON响应
-						const responseText = await response.text();
-						console.log(`[${timestamp}] [${requestId}] Docker Hub API响应内容长度: ${responseText.length}`);
-						
-						// 检查响应是否可能是JSON
-						if (responseText.trim().startsWith('{') || responseText.trim().startsWith('[')) {
-							results = JSON.parse(responseText);
-						} else {
-							// 如果不是JSON，可能是HTML错误页面
-							console.log(`[${timestamp}] [${requestId}] Docker Hub API返回非JSON响应，可能是错误页面`);
-							throw new Error('Docker Hub API返回非JSON响应');
-						}
-					} catch (error) {
-						console.log(`[${timestamp}] [${requestId}] 解析Docker Hub API响应失败: ${error.message}`);
-						// 将错误视为429处理，使用替代搜索方案
-						const commonImages = [
-							{ name: 'nginx', description: '高性能的HTTP和反向代理服务器', pulls: '10B+' },
-							{ name: 'redis', description: '开源的内存数据结构存储系统', pulls: '10B+' },
-							{ name: 'mysql', description: '流行的开源关系型数据库', pulls: '10B+' },
-							{ name: 'postgres', description: '强大的开源对象关系型数据库系统', pulls: '10B+' },
-							{ name: 'node', description: '基于Chrome V8引擎的JavaScript运行时', pulls: '10B+' },
-							{ name: 'python', description: '通用的高级编程语言', pulls: '10B+' },
-							{ name: 'ubuntu', description: '基于Debian的Linux操作系统', pulls: '10B+' },
-							{ name: 'alpine', description: '轻量级Linux发行版', pulls: '10B+' },
-							{ name: 'httpd', description: 'Apache HTTP服务器', pulls: '10B+' },
-							{ name: 'mongo', description: '文档导向的NoSQL数据库', pulls: '1B+' }
-						];
-						
-						// 过滤出与搜索词相关的镜像
-						const filteredImages = commonImages.filter(img => 
-							img.name.toLowerCase().includes(searchTerm.toLowerCase())
-						);
-						
-						let html = `
-						<!DOCTYPE html>
-						<html lang="zh-CN">
-						<head>
-							<meta charset="UTF-8">
-							<meta name="viewport" content="width=device-width, initial-scale=1.0">
-							<title>Docker镜像搜索 - 替代结果</title>
-							<style>
-								body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-								.container { max-width: 1200px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; }
-								h1 { color: #333; margin-bottom: 20px; }
-								.search-box { margin-bottom: 20px; }
-								.search-box input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
-								.search-box button { padding: 10px 15px; background-color: #0db7ed; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer; }
-								.error-message { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-								.image-list { list-style: none; padding: 0; }
-								.image-item { border: 1px solid #eee; border-radius: 4px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-								.image-info h3 { margin: 0 0 5px 0; color: #0db7ed; }
-								.image-info p { margin: 0; color: #666; }
-								.image-stats { color: #888; font-size: 14px; }
-								.docker-command { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 8px; font-family: monospace; margin-top: 10px; }
-								.alternative-search { margin-top: 20px; }
-								.alternative-search h3 { margin-bottom: 10px; }
-								.alternative-search ul { list-style-type: disc; margin-left: 20px; }
-								.alternative-search li { margin-bottom: 5px; }
-							</style>
-						</head>
-						<body>
-							<div class="container">
-								<h1>Docker镜像搜索</h1>
-								<div class="search-box">
-									<form method="get" action="/search">
-										<input type="text" name="q" placeholder="搜索Docker镜像..." value="${searchTerm}">
-										<button type="submit">搜索</button>
-									</form>
-								</div>
-								
-								<div class="error-message">
-									<strong>注意:</strong> Docker Hub API返回了非预期响应。以下是常见镜像列表作为替代方案。
-								</div>
-								
-								<h2>搜索结果 (${filteredImages.length} 个)</h2>
-								<ul class="image-list">
-						`;
-						
-						if (filteredImages.length > 0) {
-							filteredImages.forEach(image => {
-								html += `
-									<li class="image-item">
-										<div class="image-info">
-											<h3>${image.name}</h3>
-											<p>${image.description}</p>
-											<div class="image-stats">下载量: ${image.pulls}</div>
-											<div class="docker-command">docker pull ${image.name}</div>
-										</div>
-									</li>
-								`;
-							});
-						} else {
-							html += `
-								<li class="image-item">
-									<div class="image-info">
-										<h3>未找到相关镜像</h3>
-										<p>在常见镜像列表中没有找到与 "${searchTerm}" 相关的镜像。</p>
-									</div>
-								</li>
-							`;
-						}
-						
-						html += `
-								</ul>
-								
-								<div class="alternative-search">
-									<h3>其他搜索选项:</h3>
-									<ul>
-										<li>使用命令行: <code>docker search ${searchTerm}</code></li>
-										<li>访问 <a href="https://hub.docker.com/search?q=${encodeURIComponent(searchTerm)}" target="_blank">Docker Hub官方网站</a></li>
-										<li>尝试更具体的搜索词，如 "nginx:alpine" 而不是 "nginx"</li>
-									</ul>
-								</div>
-							</div>
-						</body>
-						</html>
-						`;
-						
-						const fallbackResponse = new Response(html, {
-							headers: {
-								'Content-Type': 'text/html; charset=UTF-8',
-							},
-						});
-						
-						// 缓存替代结果，减少API请求频率
-						await caches.default.put(cacheUrl, fallbackResponse.clone());
-						
-						return fallbackResponse;
-					}
-					
-					// 构建HTML响应
-					let html = `
-					<!DOCTYPE html>
-					<html>
-					<head>
-						<meta charset="UTF-8">
-						<title>Docker镜像搜索结果: ${searchTerm}</title>
-						<style>
-							body { font-family: Arial, sans-serif; max-width: 1200px; margin: 0 auto; padding: 20px; }
-							.search-result { border: 1px solid #ddd; margin-bottom: 15px; padding: 15px; border-radius: 5px; }
-							.search-result h3 { margin-top: 0; }
-							.search-result a { text-decoration: none; color: #0066cc; }
-							.search-result a:hover { text-decoration: underline; }
-							.search-form { margin-bottom: 20px; }
-							.search-form input[type="text"] { padding: 8px; width: 300px; }
-							.search-form button { padding: 8px 15px; background: #0066cc; color: white; border: none; cursor: pointer; }
-							.error-message { background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
-							.alternative-search { background-color: #e2e3e5; padding: 15px; border-radius: 5px; margin-top: 20px; }
-						</style>
-					</head>
-					<body>
-						<h1>Docker镜像搜索结果: ${searchTerm}</h1>
-						<div class="search-form">
-							<form action="/search" method="get">
-								<input type="text" name="q" value="${searchTerm}" placeholder="搜索Docker镜像...">
-								<button type="submit">搜索</button>
-							</form>
-						</div>
-						<div class="results">
-					`;
-					
-					if (results.results && results.results.length > 0) {
-						results.results.forEach(repo => {
-							html += `
-							<div class="search-result">
-								<h3><a href="https://hub.docker.com/r/${repo.repo_name}" target="_blank">${repo.repo_name}</a></h3>
-								<p>${repo.short_description || '无描述'}</p>
-								<p><strong>拉取命令:</strong> <code>docker pull ${repo.repo_name}</code></p>
-								<p><strong>星标:</strong> ${repo.star_count} | <strong>拉取次数:</strong> ${repo.pull_count}</p>
-							</div>
-							`;
-						});
-					} else {
-						html += `<p>未找到与 "${searchTerm}" 相关的镜像。</p>`;
-					}
-					
-					html += `
-						</div>
-					</body>
-					</html>
-					`;
-					
-					const successResponse = new Response(html, {
-						headers: {
-							'Content-Type': 'text/html; charset=UTF-8',
-						},
-					});
-					
-					// 缓存成功响应，减少API请求频率
-					await caches.default.put(cacheUrl, successResponse.clone());
-					
-					return successResponse;
-				} else if (response.status === 429 || response.status >= 500) {
-					// 如果遇到速率限制或服务器错误，显示错误信息和替代方案
-					console.log(`[${timestamp}] [${requestId}] Docker Hub API响应状态码: ${response.status}，使用替代搜索方案`);
-					
-					// 常见镜像列表作为替代方案
-					const commonImages = [
-						{ name: 'nginx', description: '高性能的HTTP和反向代理服务器', pulls: '10B+' },
-						{ name: 'redis', description: '开源的内存数据结构存储系统', pulls: '10B+' },
-						{ name: 'mysql', description: '流行的开源关系型数据库', pulls: '10B+' },
-						{ name: 'postgres', description: '强大的开源对象关系型数据库系统', pulls: '10B+' },
-						{ name: 'node', description: '基于Chrome V8引擎的JavaScript运行时', pulls: '10B+' },
-						{ name: 'python', description: '通用的高级编程语言', pulls: '10B+' },
-						{ name: 'ubuntu', description: '基于Debian的Linux操作系统', pulls: '10B+' },
-						{ name: 'alpine', description: '轻量级Linux发行版', pulls: '10B+' },
-						{ name: 'httpd', description: 'Apache HTTP服务器', pulls: '10B+' },
-						{ name: 'mongo', description: '文档导向的NoSQL数据库', pulls: '1B+' }
-					];
-					
-					// 过滤出与搜索词相关的镜像
-					const filteredImages = commonImages.filter(img => 
-						img.name.toLowerCase().includes(searchTerm.toLowerCase())
-					);
-					
-					let html = `
-					<!DOCTYPE html>
-					<html lang="zh-CN">
-					<head>
-						<meta charset="UTF-8">
-						<meta name="viewport" content="width=device-width, initial-scale=1.0">
-						<title>Docker镜像搜索 - 替代结果</title>
-						<style>
-							body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
-							.container { max-width: 1200px; margin: 0 auto; background-color: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 20px; }
-							h1 { color: #333; margin-bottom: 20px; }
-							.search-box { margin-bottom: 20px; }
-							.search-box input { width: 70%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 16px; }
-							.search-box button { padding: 10px 15px; background-color: #0db7ed; color: white; border: none; border-radius: 4px; margin-left: 10px; cursor: pointer; }
-							.error-message { background-color: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
-							.image-list { list-style: none; padding: 0; }
-							.image-item { border: 1px solid #eee; border-radius: 4px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
-							.image-info h3 { margin: 0 0 5px 0; color: #0db7ed; }
-							.image-info p { margin: 0; color: #666; }
-							.image-stats { color: #888; font-size: 14px; }
-							.docker-command { background-color: #f8f9fa; border: 1px solid #e9ecef; border-radius: 4px; padding: 8px; font-family: monospace; margin-top: 10px; }
-							.alternative-search { margin-top: 20px; }
-							.alternative-search h3 { margin-bottom: 10px; }
-							.alternative-search ul { list-style-type: disc; margin-left: 20px; }
-							.alternative-search li { margin-bottom: 5px; }
-						</style>
-					</head>
-					<body>
-						<div class="container">
-							<h1>Docker镜像搜索</h1>
-							<div class="search-box">
-								<form method="get" action="/search">
-									<input type="text" name="q" placeholder="搜索Docker镜像..." value="${searchTerm}">
-									<button type="submit">搜索</button>
-								</form>
-							</div>
-							
-							<div class="error-message">
-								<strong>注意:</strong> Docker Hub API当前不可用 (错误代码: ${response.status})。以下是常见镜像列表作为替代方案。
-							</div>
-							
-							<h2>搜索结果 (${filteredImages.length} 个)</h2>
-							<ul class="image-list">
-					`;
-					
-					if (filteredImages.length > 0) {
-						filteredImages.forEach(image => {
-							html += `
-								<li class="image-item">
-									<div class="image-info">
-										<h3>${image.name}</h3>
-										<p>${image.description}</p>
-										<div class="image-stats">下载量: ${image.pulls}</div>
-										<div class="docker-command">docker pull ${image.name}</div>
-									</div>
-								</li>
-							`;
-						});
-					} else {
-						html += `
-							<li class="image-item">
-								<div class="image-info">
-									<h3>未找到相关镜像</h3>
-									<p>在常见镜像列表中没有找到与 "${searchTerm}" 相关的镜像。</p>
-								</div>
-							</li>
-						`;
-					}
-					
-					html += `
-							</ul>
-							
-							<div class="alternative-search">
-								<h3>其他搜索选项:</h3>
-								<ul>
-									<li>使用命令行: <code>docker search ${searchTerm}</code></li>
-									<li>访问 <a href="https://hub.docker.com/search?q=${encodeURIComponent(searchTerm)}" target="_blank">Docker Hub官方网站</a></li>
-									<li>尝试更具体的搜索词，如 "nginx:alpine" 而不是 "nginx"</li>
-								</ul>
-							</div>
-						</div>
-					</body>
-					</html>
-					`;
-					
-					const fallbackResponse = new Response(html, {
-						headers: {
-							'Content-Type': 'text/html; charset=UTF-8',
-						},
-					});
-					
-					// 缓存替代结果，减少API请求频率
-					await caches.default.put(cacheUrl, fallbackResponse.clone());
-					
-					return fallbackResponse;
-				} else {
-					// 如果API请求失败，返回错误页面
-					return new Response(`搜索失败: ${response.status} ${response.statusText}`, {
-						status: response.status,
-						headers: {
-							'Content-Type': 'text/plain; charset=UTF-8',
-						},
-					});
-				}
 			} else {
 				// 新增逻辑：/v1/ 路径特殊处理
 				if (url.pathname.startsWith('/v1/')) {
@@ -852,11 +482,8 @@ export default {
 					const search = url.searchParams.get('q');
 					url.searchParams.set('q', search.replace('library/', ''));
 				}
-				console.log(`[${timestamp}] [${requestId}] 最终请求URL: ${url}`);
 				const newRequest = new Request(url, request);
-				const response = await fetch(newRequest);
-			console.log(`[${timestamp}] [${requestId}] 响应状态码: ${response.status}`);
-			return response;
+				return fetch(newRequest);
 			}
 		}
 
@@ -880,14 +507,6 @@ export default {
 					'Cache-Control': 'max-age=0'
 				}
 			};
-			// 如果提供了Docker Hub认证信息，添加Basic Auth
-			if (env.DOCKER_USERNAME && env.DOCKER_PASSWORD) {
-				console.log("Docker Hub认证信息已加载");
-				const credentials = btoa(`${env.DOCKER_USERNAME}:${env.DOCKER_PASSWORD}`);
-				token_parameter.headers['Authorization'] = `Basic ${credentials}`;
-			} else {
-				console.log("未找到Docker Hub认证信息，将使用未认证请求");
-			}
 			let token_url = auth_url + url.pathname + url.search;
 			return fetch(new Request(token_url, request), token_parameter);
 		}
@@ -908,8 +527,7 @@ export default {
 				url.pathname.includes('/tags/')
 				|| url.pathname.endsWith('/tags/list')
 			)
-		)
-		{
+		) {
 			// 提取镜像名
 			let repo = '';
 			const v2Match = url.pathname.match(/^\/v2\/(.+?)(?:\/(manifests|blobs|tags)\/)/);
@@ -918,7 +536,6 @@ export default {
 			}
 			if (repo) {
 				const tokenUrl = `${auth_url}/token?service=registry.docker.io&scope=repository:${repo}:pull`;
-				console.log(`[${timestamp}] [${requestId}] 获取镜像 ${repo} 的token`);
 				const tokenRes = await fetch(tokenUrl, {
 					headers: {
 						'User-Agent': getReqHeader("User-Agent"),
@@ -931,7 +548,6 @@ export default {
 				});
 				const tokenData = await tokenRes.json();
 				const token = tokenData.token;
-				console.log(`[${timestamp}] [${requestId}] Token获取成功，状态码: ${tokenRes.status}`);
 				let parameter = {
 					headers: {
 						'Host': hub_host,
